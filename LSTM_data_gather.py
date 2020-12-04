@@ -15,17 +15,17 @@ class Blink:
         self.velocity = (ev-mv)/(ei-mi)
 
 
-def detect_data(arr):
+def detect_data(arr, baseline):
     arr = np.array(arr)
     blinks = []
     started_count = False
     start_index, end_index = None, None
     for index, EAR in enumerate(arr):
-        if EAR < 0.6 and not started_count:
+        if EAR < baseline and not started_count:
             started_count = True
             start_index = index
         if started_count:
-            if EAR > 0.6:
+            if EAR > baseline:
                 started_count = False
                 end_index = index
                 minimum = np.min(np.arr(arr[start_index, end_index+1]))
