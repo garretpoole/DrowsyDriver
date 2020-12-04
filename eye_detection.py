@@ -39,6 +39,8 @@ while True:
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
     faces = detector(gray)
+    tEAR = 0
+    mouthAR = 0
     for face in faces:
         landmarks = predictor(gray, face)
 
@@ -106,7 +108,7 @@ while True:
         print('EAR total', tEAR)
         print("mouthAR ", round(mouthAR, 3))
     # begin timer of eyes being shut and counter for drowsy frames
-    if tEAR <= 0.43 and start == 0:
+    if tEAR <= 0.5 and start == 0:
         start = time.time()
         currDrowsy = 0
     # once eyes open restart the start and add to total drowsy frames
@@ -124,9 +126,9 @@ while True:
             if currDrowsy > 0:
                 currDrowsy += 1
             # once elapsed at 3 seconds, driver has been drowsy for
-            # 75 frames (25fps for phone) or 36 frames (12fps for mac)
+            # 75 frames (30fps for phone) or 36 frames (12fps for mac)
             else:
-                currDrowsy += mac
+                currDrowsy += iphone
     cv.putText(frame, "EAR: {}".format(tEAR), (10, 30),
                cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
     cv.putText(frame, "MAR: {:.2f}".format(round(mouthAR, 3)), (10, 60),
