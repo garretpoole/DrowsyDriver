@@ -16,6 +16,14 @@ class Blink:
 
 
 def detect_data(arr, baseline):
+    """
+    Calculate blink features based on inputted time series data
+    arguments:
+        arr: an array of Eye Aspect ratios for every frame of the video
+        baseline: the baseline aspect ratio calculated during normalization
+    output:
+        blinks: array containing Blink instances that contain information about blinks
+    """
     arr = np.array(arr)
     blinks = []
     started_count = False
@@ -32,8 +40,7 @@ def detect_data(arr, baseline):
                 min_loc = np.where(arr[start_index, end_index+1] == minimum)
                 instance = Blink(start_index, arr[start_index],
                                  end_index, arr[end_index], min_loc, minimum)
-                blinks.append((start_index, arr[start_index], end_index,
-                               arr[end_index], min_loc, minimum))
+                blinks.append(instance)
                 start_index = None
                 end_index = None
     return blinks
