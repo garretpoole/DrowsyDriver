@@ -1,7 +1,7 @@
+import sys
 import cv2 as cv
 import dlib
 import numpy as np
-import sys
 import time
 
 if len(sys.argv) != 2:
@@ -19,7 +19,14 @@ detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 cv.namedWindow('framer')
-
+#fps changes between cameras
+mac = 12
+iphone = 30
+# init start time and total drowsy frames for video
+start = 0
+drowsyFrames = 0
+currDrowsy = 0
+totalFrames = 0
 while True:
 
     ret, frame = cap.read()
@@ -28,9 +35,12 @@ while True:
         print('read not successful')
         break
 
+    totalFrames = totalFrames + 1
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
     faces = detector(gray)
+    tEAR = 0
+    mouthAR = 0
     for face in faces:
         landmarks = predictor(gray, face)
 
@@ -46,10 +56,10 @@ while True:
         right_eye_38 = (landmarks.part(37).x, landmarks.part(37).y)
         right_eye_42 = (landmarks.part(41).x, landmarks.part(41).y)
 
-        right_top_mid = ((right_eye_39[0] + right_eye_38[0])//2,
-                         (right_eye_38[1] + right_eye_39[1])//2)
-        right_bottom_mid = ((right_eye_41[0] + right_eye_42[0])//2,
-                            (right_eye_41[1] + right_eye_42[1])//2)
+        right_top_mid = ((right_eye_39[0] + right_eye_38[0]) // 2,
+                         (right_eye_38[1] + right_eye_39[1]) // 2)
+        right_bottom_mid = ((right_eye_41[0] + right_eye_42[0]) // 2,
+                            (right_eye_41[1] + right_eye_42[1]) // 2)
 
         left_eye_right_point = (landmarks.part(42).x, landmarks.part(42).y)
         left_eye_left_point = (landmarks.part(45).x, landmarks.part(45).y)
@@ -60,23 +70,23 @@ while True:
         left_eye_45 = (landmarks.part(44).x, landmarks.part(44).y)
         left_eye_47 = (landmarks.part(46).x, landmarks.part(46).y)
 
-        left_top_mid = ((left_eye_44[0] + left_eye_45[0])//2,
-                        (left_eye_44[1] + left_eye_45[1])//2)
-        left_bottom_mid = ((left_eye_47[0] + left_eye_48[0])//2,
-                           (left_eye_47[1] + left_eye_48[1])//2)
+        left_top_mid = ((left_eye_44[0] + left_eye_45[0]) // 2,
+                        (left_eye_44[1] + left_eye_45[1]) // 2)
+        left_bottom_mid = ((left_eye_47[0] + left_eye_48[0]) // 2,
+                           (left_eye_47[1] + left_eye_48[1]) // 2)
 
         horizontal_dist_right = right_eye_left_point[0] - \
-                right_eye_right_point[0]
+                                right_eye_right_point[0]
         right_vert_dist_1 = right_eye_42[1] - right_eye_38[1]
         right_vert_dist_2 = right_eye_41[1] - right_eye_39[1]
 
-        lEAR = (right_vert_dist_1 + right_vert_dist_2)/(2*horizontal_dist_right)
+        lEAR = (right_vert_dist_1 + right_vert_dist_2) / (2 * horizontal_dist_right)
 
         horizontal_dist_left = left_eye_left_point[0] - left_eye_right_point[0]
         left_vert_dist_1 = left_eye_47[1] - left_eye_45[1]
         left_vert_dist_2 = left_eye_48[1] - left_eye_44[1]
 
-        rEAR = (left_vert_dist_1 + left_vert_dist_2)/(2*horizontal_dist_left)
+        rEAR = (left_vert_dist_1 + left_vert_dist_2) / (2 * horizontal_dist_left)
 
         cv.line(frame, right_eye_right_point, right_eye_left_point,
                 (0, 255, 0), 1)
@@ -92,27 +102,43 @@ while True:
         top_mouth = (landmarks.part(62).x, landmarks.part(62).y)
         bottom_mouth = (landmarks.part(66).x, landmarks.part(66).y)
 
-        mouthAR = (bottom_mouth[1]-top_mouth[1])/(left_mouth[0]-right_mouth[0])
+        mouthAR = (bottom_mouth[1] - top_mouth[1]) / (left_mouth[0] - right_mouth[0])
 
         tEAR = round(lEAR + rEAR, 3)
         print('EAR total', tEAR)
         print("mouthAR ", round(mouthAR, 3))
-    if tEAR < 0.43:
+    # begin timer of eyes being shut and counter for drowsy frames
+    if tEAR <= 0.5 and start == 0:
         start = time.time()
+        currDrowsy = 0
+    # once eyes open restart the start and add to total drowsy frames
+    elif tEAR > 0.5:
+        start = 0
+        drowsyFrames += currDrowsy
+        currDrowsy = 0
+    # if eyes shut get the time elapsed
     else:
-        curr = time.time()
-        elapsed = curr-start
+        currTime = time.time()
+        elapsed = currTime - start
         print(elapsed)
+        if elapsed > 3:
+            # add one drowsy frame per loop once the 75 is counted
+            if currDrowsy > 0:
+                currDrowsy += 1
+            # once elapsed at 3 seconds, driver has been drowsy for
+            # 75 frames (30fps for phone) or 36 frames (12fps for mac)
+            else:
+                currDrowsy += iphone
     cv.putText(frame, "EAR: {}".format(tEAR), (10, 30),
                cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
     cv.putText(frame, "MAR: {:.2f}".format(round(mouthAR, 3)), (10, 60),
                cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
     cv.imshow('framer', frame)
-
     if cv.waitKey(20) == ord('q'):
         print('stop')
         break
-
+print(drowsyFrames, totalFrames)
+print('Drowsy Percentage: ', drowsyFrames / totalFrames * 100)
 
 cv.destroyAllWindows()
 cap.release()
