@@ -13,21 +13,21 @@ def PUC_calc(p1, p2, p3, p4, p5, p6):
     return (4 * np.pi * area) / (perimeter ** 2)
 
 
-def drowsy_score(EAR, MAR, PUC, MOE):
+def drowsy_score(EAR, MAR, PUC, MOE, EAR_mean, EAR_dev, PUC_mean, PUC_dev):
     score = 0
-    if EAR < 0.43:
-        score += 1.5
+    if (EAR_mean - EAR) / EAR_dev > 1.5:
+        score += 1.8
     if MAR > 0.5:
         score += 1
-    if PUC < 0.1:
-        score += 1
+    if (PUC_mean - PUC) / PUC_dev > 1:
+        score += .8
     if MOE > 1.2:
         score += 1
     return score
 
 
 def get_baseline(cap):
-    MOE, PUC, tEAR, mouthAR = 0, 0, 0, 0
+    PUC, tEAR = [], []
     count = 0
     cv.namedWindow('Initialization')
     while True:
@@ -73,20 +73,12 @@ def get_baseline(cap):
 
             rEAR = (left_vert_dist_1 + left_vert_dist_2) / (2 * horizontal_dist_left)
 
-            # Calculate YAWN aspect ratio
-            right_mouth = (landmarks.part(60).x, landmarks.part(60).y)
-            left_mouth = (landmarks.part(64).x, landmarks.part(64).y)
-
-            top_mouth = (landmarks.part(62).x, landmarks.part(62).y)
-            bottom_mouth = (landmarks.part(66).x, landmarks.part(66).y)
-
-            mouthAR += (bottom_mouth[1] - top_mouth[1]) / (left_mouth[0] - right_mouth[0])
             rPUC = PUC_calc(np.array(right_eye_right_point), np.array(right_eye_38), np.array(right_eye_39),
                             np.array(right_eye_left_point), np.array(right_eye_41), np.array(right_eye_42))
             lPUC = PUC_calc(np.array(left_eye_right_point), np.array(left_eye_44), np.array(left_eye_45),
                             np.array(left_eye_left_point), np.array(left_eye_47), np.array(left_eye_48))
-            PUC += (lPUC + rPUC) / 2
-            tEAR += round(lEAR + rEAR, 3)
+            PUC.append(((lPUC + rPUC) / 2))
+            tEAR.append(round(lEAR + rEAR, 3))
 
             cv.putText(frame, "Measuring...", (10, 30),
                        cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
@@ -94,11 +86,13 @@ def get_baseline(cap):
             if cv.waitKey(20) == ord('q'):
                 print('stop')
                 break
-            # Mouth over Ear aspect ratio
-            MOE += mouthAR / tEAR
             if count >= 25:
                 cv.destroyWindow("Initialization")
-                return tEAR / 25, mouthAR / 25, MOE / 25, PUC / 25
+                PUC_mean = sum(PUC) / 25
+                PUC_dev = np.std(PUC)
+                EAR_mean = sum(tEAR) / 25
+                EAR_dev = np.std(tEAR)
+                return PUC_mean, PUC_dev, EAR_mean, EAR_dev
 
 
 if len(sys.argv) != 2:
@@ -112,14 +106,13 @@ if file == '0':
 
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
-input("Press Enter to begin measurement...")
+# input("Press Enter to begin measurement...")
 cap = cv.VideoCapture(file)
 
 # Collect 25 frames of sample data to get baseline alert state
 baselines = get_baseline(cap)
-EAR_base, MAR_base, MOE_base, PUC_base = baselines[0], baselines[1], baselines[2], baselines[3]
-# print(baselines)
-
+PUC_mean, PUC_dev, EAR_mean, EAR_dev = baselines[0], baselines[1], baselines[2], baselines[3]
+print(baselines)
 
 cv.namedWindow('framer')
 closed_eye_count = 0
@@ -212,11 +205,10 @@ while True:
         # Mouth over Ear aspect ratio
         MOE = mouthAR / tEAR
     if tEAR < 0.43:
-        print(time.time())
         closed_eye_count += 1
     else:
         closed_eye_count = 0
-    score[counter % 45] = drowsy_score(tEAR, mouthAR, PUC, MOE)
+    score[counter % 45] = drowsy_score(tEAR, mouthAR, PUC, MOE, EAR_mean, EAR_dev, PUC_mean, PUC_dev)
     counter += 1
     cv.putText(frame, "EAR: {}".format(tEAR), (10, 30),
                cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
@@ -230,7 +222,6 @@ while True:
                cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
     if sum(score) / 45 > 2.2:
         cv.putText(frame, "DROWSY ALERT!", (10, 180), cv.FONT_HERSHEY_COMPLEX, 1, (255, 0, 255), 2)
-        print(time.time())
     cv.imshow('framer', frame)
 
     if cv.waitKey(20) == ord('q'):
