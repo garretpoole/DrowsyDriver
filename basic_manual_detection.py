@@ -6,7 +6,7 @@ import time
 
 if len(sys.argv) != 2:
     print('argument length=', len(sys.argv))
-    print("usage: python3 [script name] [video file name or 0 for camera input]")
+    print("usage: python3 [script name] [video file name or 0 for camera input]\nNote that low fps from camera may cause issues")
     exit(0)
 
 file = sys.argv[1]
@@ -41,12 +41,16 @@ while True:
     faces = detector(gray)
     tEAR = 0
     mouthAR = 0
+    
+    # compute ratios for each face
     for face in faces:
         landmarks = predictor(gray, face)
 
         for i in range(0, 68):
             loc = (landmarks.part(i).x, landmarks.part(i).y)
             cv.circle(frame, loc, 1, (0, 255, 0), 1)
+        
+        # converting 6 landmarks to easily indexable points for right eye
         right_eye_right_point = (landmarks.part(36).x, landmarks.part(36).y)
         right_eye_left_point = (landmarks.part(39).x, landmarks.part(39).y)
 
@@ -61,6 +65,7 @@ while True:
         right_bottom_mid = ((right_eye_41[0] + right_eye_42[0]) // 2,
                             (right_eye_41[1] + right_eye_42[1]) // 2)
 
+        # converting 6 landmarks to easily indexable points for left eye        
         left_eye_right_point = (landmarks.part(42).x, landmarks.part(42).y)
         left_eye_left_point = (landmarks.part(45).x, landmarks.part(45).y)
 
@@ -75,6 +80,8 @@ while True:
         left_bottom_mid = ((left_eye_47[0] + left_eye_48[0]) // 2,
                            (left_eye_47[1] + left_eye_48[1]) // 2)
 
+        # computing distance metrics for the lEAR. Variables may seem incorrect
+        # refer to facial landmarks image to visualize points
         horizontal_dist_right = right_eye_left_point[0] - \
                                 right_eye_right_point[0]
         right_vert_dist_1 = right_eye_42[1] - right_eye_38[1]
@@ -82,12 +89,14 @@ while True:
 
         lEAR = (right_vert_dist_1 + right_vert_dist_2) / (2 * horizontal_dist_right)
 
+        # computing distance metrics for the rEAR
         horizontal_dist_left = left_eye_left_point[0] - left_eye_right_point[0]
         left_vert_dist_1 = left_eye_47[1] - left_eye_45[1]
         left_vert_dist_2 = left_eye_48[1] - left_eye_44[1]
 
         rEAR = (left_vert_dist_1 + left_vert_dist_2) / (2 * horizontal_dist_left)
 
+        # drawing lines on the computed distances
         cv.line(frame, right_eye_right_point, right_eye_left_point,
                 (0, 255, 0), 1)
         cv.line(frame, right_top_mid, right_bottom_mid, (0, 255, 0), 1)
