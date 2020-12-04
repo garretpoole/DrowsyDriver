@@ -19,7 +19,10 @@ detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 cv.namedWindow('framer')
-
+#init start time and total drowsy frames for video
+start = 0
+drowsyFrames = 0
+totalFrames = 0
 while True:
 
     ret, frame = cap.read()
@@ -27,7 +30,8 @@ while True:
     if not ret:
         print('read not successful')
         break
-
+    
+    totalFrames += 1
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
     faces = detector(gray)
@@ -97,22 +101,36 @@ while True:
         tEAR = round(lEAR + rEAR, 3)
         print('EAR total', tEAR)
         print("mouthAR ", round(mouthAR, 3))
-    if tEAR < 0.43:
+    #begin timer of eyes being shut and counter for drowsy frames
+    if tEAR <= 0.43 and start == 0:
         start = time.time()
+        currFrames = 0
+    #once eyes open restart the start and add to total drowsy frames
+    elif tEAR > 0.43:
+        start = 0
+        drowsyFrames += currDrowsy
+    #if eyes shut get the time elapsed
     else:
-        curr = time.time()
-        elapsed = curr-start
+        currTime = time.time()
+        elapsed = currTime-start
         print(elapsed)
-    cv.putText(frame, "EAR: {}".format(tEAR), (10, 30),
-               cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
-    cv.putText(frame, "MAR: {:.2f}".format(round(mouthAR, 3)), (10, 60),
-               cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
-    cv.imshow('framer', frame)
-
+        if elapsed > 3:
+            #add one drowsy frame per loop once the 75 is counted
+            if currFrames > 0:
+                currFrames += 1
+            #once elapsed at 3 seconds, driver has been drowsy for 75 seconds (25fps)
+            else:
+                currFrames += 75
+            cv.putText(frame, "EAR: {}".format(tEAR), (10, 30),
+                    cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
+            cv.putText(frame, "MAR: {:.2f}".format(round(mouthAR, 3)), (10, 60),
+                    cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
+            cv.imshow('framer', frame)
     if cv.waitKey(20) == ord('q'):
         print('stop')
         break
 
+print('Drowsy Percentage: ', drowsyFrames/totalFrames)
 
 cv.destroyAllWindows()
 cap.release()
