@@ -20,6 +20,7 @@ predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 cv.namedWindow('framer')
 
+start = None
 while True:
 
     ret, frame = cap.read()
@@ -97,12 +98,20 @@ while True:
         tEAR = round(lEAR + rEAR, 3)
         print('EAR total', tEAR)
         print("mouthAR ", round(mouthAR, 3))
-    if tEAR < 0.43:
+
+    # Issue alert
+    if tEAR < 0.43 and not already_started:
+        already_started = True 
         start = time.time()
-    else:
+    elif start != None:
         curr = time.time()
         elapsed = curr-start
+        if elapsed >= 1.5:
+            # issue drowsy detection
+            pass
+        start = None
         print(elapsed)
+
     cv.putText(frame, "EAR: {}".format(tEAR), (10, 30),
                cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
     cv.putText(frame, "MAR: {:.2f}".format(round(mouthAR, 3)), (10, 60),
