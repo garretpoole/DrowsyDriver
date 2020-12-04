@@ -99,19 +99,6 @@ while True:
         print('EAR total', tEAR)
         print("mouthAR ", round(mouthAR, 3))
 
-    # Issue alert
-    if tEAR < 0.43 and not already_started:
-        already_started = True 
-        start = time.time()
-    elif start != None:
-        curr = time.time()
-        elapsed = curr-start
-        if elapsed >= 1.5:
-            # issue drowsy detection
-            pass
-        start = None
-        print(elapsed)
-
     cv.putText(frame, "EAR: {}".format(tEAR), (10, 30),
                cv.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
     cv.putText(frame, "MAR: {:.2f}".format(round(mouthAR, 3)), (10, 60),
